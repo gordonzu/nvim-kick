@@ -5,6 +5,7 @@
 
 -- Iterate over all Lua files in the plugins directory and load them.
 -- `vim.fs.dir()` iteration order is unspecified and must not be relied upon.
+
 local plugins_dir = vim.fs.joinpath(vim.fn.stdpath 'config', 'lua', 'custom', 'plugins')
 for file_name, type in vim.fs.dir(plugins_dir, { follow = true }) do
   if (type == 'file' or type == 'link') and file_name:match '%.lua$' and file_name ~= 'init.lua' then
@@ -14,6 +15,32 @@ for file_name, type in vim.fs.dir(plugins_dir, { follow = true }) do
 end
 
 do
+
+
+  vim.pack.add({ { src = "https://github.com/ThePrimeagen/harpoon", version = "harpoon2", } })
+
+  local harpoon = require("harpoon");
+  harpoon:setup()
+
+  vim.keymap.set("n", "<leader>a", function()
+    harpoon:list():add() end , { desc = "add buffer to harpoon" })
+  vim.keymap.set("n", "<C-e>", function()
+    harpoon.ui:toggle_quick_menu(harpoon:list()) end , { desc = "show harpoon window" })
+  vim.keymap.set("n", "1", function()
+    harpoon:list():select(1) end, { desc = "pick 1st buff" })
+  vim.keymap.set("n", "2", function()
+    harpoon:list():select(2) end, { desc = "pick 2nd buff" })
+  vim.keymap.set("n", "3", function()
+    harpoon:list():select(3) end, { desc = "pick 3rd buff" })
+  vim.keymap.set("n", "4", function()
+    harpoon:list():select(4) end, { desc = "pick 4th buff" })
+
+
+  vim.keymap.set("n", "<leader>x", ":bd<CR>", { desc = "delete open buffer" })
+  vim.keymap.set("n", "<leader>[", ":bn<CR>", { desc = "next buffer" })
+  vim.keymap.set("n", "<leader>]", ":bp<CR>", { desc = "previous buffer" })
+
+
   vim.pack.add({ { src = "https://github.com/stevearc/oil.nvim" } })
   require("oil").setup({
     default_file_explorer = true,
@@ -95,7 +122,7 @@ do
   ---@diagnostic disable-next-line: missing-fields
   --require('zenbones').setup { }
 
-  vim.cmd('set background=light')
+  vim.cmd('set background=dark')
   vim.cmd('colorscheme zenbones')
 
 

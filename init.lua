@@ -1058,10 +1058,10 @@ do
   --  Here are some example plugins that I've included in the Kickstart repository.
   --  Uncomment any of the lines below to enable them (you will need to restart nvim).
   --
-  -- require 'kickstart.plugins.debug'
-  -- require 'kickstart.plugins.indent_line'
-  -- require 'kickstart.plugins.lint'
-  -- require 'kickstart.plugins.autopairs'
+  require 'kickstart.plugins.debug'
+  require 'kickstart.plugins.indent_line'
+  require 'kickstart.plugins.lint'
+  require 'kickstart.plugins.autopairs'
   require 'kickstart.plugins.neo-tree'
 
   -- NOTE: You can add your own plugins, configuration, etc. in `lua/custom/plugins/*.lua`.
@@ -1077,6 +1077,15 @@ do
   -- require 'custom.plugins.colorscheme'
   -- require 'custom.plugins.ui'
   -- require 'custom.plugins.git'
+
+--vim.keymap.set = { preset = 'default', ['<Tab>'] = { 'select_next', 'snippet_forward', 'fallback' }}
+--vim.keymap.set = { preset = 'default', ['<S-Tab>'] = { 'select_prev', 'snippet_backward', 'fallback' }}
+--vim.keymap.set = { preset = 'default', ['<CR>'] = { 'select_and_accept', 'fallback' }}
+
+
+
+
+
 end
 
 -- The line beneath this is called `modeline`. See `:help modeline`
