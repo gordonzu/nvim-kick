@@ -191,12 +191,26 @@ do
   vim.diagnostic.config {
     update_in_insert = false,
     severity_sort = true,
-    float = { border = 'rounded', source = 'if_many' },
+    float = { border = 'rounded', source = 'if_many', max_width = 90, wrap = true },
     underline = { severity = { min = vim.diagnostic.severity.WARN } },
 
-    -- Can switch between these as you prefer
-    virtual_text = true, -- Text shows up at the end of the line
-    virtual_lines = false, -- Text shows up underneath the line, with virtual lines
+    -- Messages are wrapped to 90 columns and shown in full below the line
+    virtual_text = false,
+    virtual_lines = {
+      format = function(d)
+        local out, line = {}, ''
+        for word in d.message:gmatch '%S+' do
+          if #line > 0 and #line + #word + 1 > 90 then
+            table.insert(out, line)
+            line = word
+          else
+            line = (#line > 0) and (line .. ' ' .. word) or word
+          end
+        end
+        table.insert(out, line)
+        return table.concat(out, '\n')
+      end,
+    },
 
     -- Auto open the float, so you can easily read the errors when jumping with `[d` and `]d`
     jump = {
@@ -626,7 +640,99 @@ do
 end
 
 -- ============================================================
--- SECTION 6: LSP
+-- SECTION 6: AUTOCOMPLETE & SNIPPETS
+-- nvim-cmp and luasnip setup (loaded before LSP so capabilities are set first)
+-- ============================================================
+do
+  vim.pack.add {
+    { src = gh 'L3MON4D3/LuaSnip', version = vim.version.range '2.*' },
+    gh 'rafamadriz/friendly-snippets',
+    gh 'saadparwaiz1/cmp_luasnip',
+    gh 'hrsh7th/nvim-cmp',
+    gh 'hrsh7th/cmp-nvim-lsp',
+    gh 'hrsh7th/cmp-nvim-lsp-signature-help',
+    gh 'hrsh7th/cmp-nvim-lua',
+    gh 'hrsh7th/cmp-buffer',
+    gh 'hrsh7th/cmp-path',
+    gh 'hrsh7th/cmp-cmdline',
+  }
+
+  -- [[ Snippet Engine ]]
+  local luasnip = require 'luasnip'
+  luasnip.config.set_config { history = true, updateevents = 'TextChanged,TextChangedI' }
+  require('luasnip.loaders.from_vscode').lazy_load()
+  require('luasnip.loaders.from_snipmate').load()
+  require('luasnip.loaders.from_lua').load()
+
+  -- https://github.com/L3MON4D3/LuaSnip/issues/258
+  vim.api.nvim_create_autocmd('InsertLeave', {
+    callback = function()
+      if luasnip.session.current_nodes[vim.api.nvim_get_current_buf()] and not luasnip.session.jump_active then luasnip.unlink_current() end
+    end,
+  })
+
+  -- [[ Autocomplete Engine ]]
+  local cmp = require 'cmp'
+  cmp.setup {
+    completion = { completeopt = 'menu,menuone' },
+    snippet = { expand = function(args) luasnip.lsp_expand(args.body) end },
+    window = {
+      completion = cmp.config.window.bordered(),
+      documentation = cmp.config.window.bordered(),
+    },
+    mapping = {
+      ['<C-p>'] = cmp.mapping.select_prev_item(),
+      ['<C-n>'] = cmp.mapping.select_next_item(),
+      ['<C-d>'] = cmp.mapping.scroll_docs(-4),
+      ['<C-f>'] = cmp.mapping.scroll_docs(4),
+      ['<C-Space>'] = cmp.mapping.complete(),
+      ['<C-e>'] = cmp.mapping.close(),
+      ['<CR>'] = cmp.mapping.confirm { behavior = cmp.ConfirmBehavior.Insert, select = true },
+      ['<Tab>'] = cmp.mapping(function(fallback)
+        if cmp.visible() then
+          cmp.select_next_item()
+        elseif luasnip.expand_or_jumpable() then
+          luasnip.expand_or_jump()
+        else
+          fallback()
+        end
+      end, { 'i', 's' }),
+      ['<S-Tab>'] = cmp.mapping(function(fallback)
+        if cmp.visible() then
+          cmp.select_prev_item()
+        elseif luasnip.jumpable(-1) then
+          luasnip.jump(-1)
+        else
+          fallback()
+        end
+      end, { 'i', 's' }),
+    },
+    sources = cmp.config.sources({
+      { name = 'nvim_lsp' },
+      { name = 'nvim_lsp_signature_help' },
+      { name = 'luasnip' },
+      { name = 'nvim_lua' },
+      { name = 'path' },
+    }, {
+      { name = 'buffer' },
+    }),
+  }
+
+  cmp.setup.cmdline({ '/', '?' }, {
+    mapping = cmp.mapping.preset.cmdline(),
+    sources = { { name = 'buffer' } },
+  })
+  cmp.setup.cmdline(':', {
+    mapping = cmp.mapping.preset.cmdline(),
+    sources = cmp.config.sources({ { name = 'path' } }, { { name = 'cmdline' } }),
+  })
+
+  -- Must be set before the vim.lsp.enable() loop in the LSP section
+  vim.lsp.config('*', { capabilities = require('cmp_nvim_lsp').default_capabilities() })
+end
+
+-- ============================================================
+-- SECTION 7: LSP
 -- LSP keymaps, server configuration, Mason tools installations
 -- ============================================================
 do
@@ -839,7 +945,7 @@ do
 end
 
 -- ============================================================
--- SECTION 7: FORMATTING
+-- SECTION 8: FORMATTING
 -- conform.nvim setup and keymap
 -- ============================================================
 do
@@ -874,88 +980,6 @@ do
   }
 
   vim.keymap.set({ 'n', 'v' }, '<leader>f', function() require('conform').format { async = true } end, { desc = '[F]ormat buffer' })
-end
-
--- ============================================================
--- SECTION 8: AUTOCOMPLETE & SNIPPETS
--- blink.cmp and luasnip setup
--- ============================================================
-do
-  -- [[ Snippet Engine ]]
-
-  -- NOTE: You can also specify plugin using a version range for its git tag.
-  --  See `:help vim.version.range()` for more info
-  vim.pack.add { { src = gh 'L3MON4D3/LuaSnip', version = vim.version.range '2.*' } }
-  require('luasnip').setup {}
-
-  -- `friendly-snippets` contains a variety of premade snippets.
-  --    See the README about individual language/framework/plugin snippets:
-  --    https://github.com/rafamadriz/friendly-snippets
-  --
-  -- vim.pack.add { gh 'rafamadriz/friendly-snippets' }
-  -- require('luasnip.loaders.from_vscode').lazy_load()
-
-  -- [[ Autocomplete Engine ]]
-  vim.pack.add { { src = gh 'saghen/blink.cmp', version = vim.version.range '1.*' } }
-  require('blink.cmp').setup {
-    keymap = {
-      -- 'default' (recommended) for mappings similar to built-in completions
-      --   <c-y> to accept ([y]es) the completion.
-      --    This will auto-import if your LSP supports it.
-      --    This will expand snippets if the LSP sent a snippet.
-      -- 'super-tab' for tab to accept
-      -- 'enter' for enter to accept
-      -- 'none' for no mappings
-      --
-      -- For an understanding of why the 'default' preset is recommended,
-      -- you will need to read `:help ins-completion`
-      --
-      -- No, but seriously. Please read `:help ins-completion`, it is really good!
-      --
-      -- All presets have the following mappings:
-      -- <tab>/<s-tab>: move to right/left of your snippet expansion
-      -- <c-space>: Open menu or open docs if already open
-      -- <c-n>/<c-p> or <up>/<down>: Select next/previous item
-      -- <c-e>: Hide menu
-      -- <c-k>: Toggle signature help
-      --
-      -- See `:help blink-cmp-config-keymap` for defining your own keymap
-      preset = 'default',
-
-      -- For more advanced Luasnip keymaps (e.g. selecting choice nodes, expansion) see:
-      --    https://github.com/L3MON4D3/LuaSnip?tab=readme-ov-file#keymaps
-    },
-
-    appearance = {
-      -- 'mono' (default) for 'Nerd Font Mono' or 'normal' for 'Nerd Font'
-      -- Adjusts spacing to ensure icons are aligned
-      nerd_font_variant = 'mono',
-    },
-
-    completion = {
-      -- By default, you may press `<c-space>` to show the documentation.
-      -- Optionally, set `auto_show = true` to show the documentation after a delay.
-      documentation = { auto_show = false, auto_show_delay_ms = 500 },
-    },
-
-    sources = {
-      default = { 'lsp', 'path', 'snippets' },
-    },
-
-    snippets = { preset = 'luasnip' },
-
-    -- Blink.cmp includes an optional, recommended rust fuzzy matcher,
-    -- which automatically downloads a prebuilt binary when enabled.
-    --
-    -- By default, we use the Lua implementation instead, but you may enable
-    -- the rust implementation via `'prefer_rust_with_warning'`
-    --
-    -- See `:help blink-cmp-config-fuzzy` for more information
-    fuzzy = { implementation = 'lua' },
-
-    -- Shows a signature help window while you type arguments for a function
-    signature = { enabled = true },
-  }
 end
 
 -- ============================================================
@@ -1078,9 +1102,6 @@ do
   -- require 'custom.plugins.ui'
   -- require 'custom.plugins.git'
 
---vim.keymap.set = { preset = 'default', ['<Tab>'] = { 'select_next', 'snippet_forward', 'fallback' }}
---vim.keymap.set = { preset = 'default', ['<S-Tab>'] = { 'select_prev', 'snippet_backward', 'fallback' }}
---vim.keymap.set = { preset = 'default', ['<CR>'] = { 'select_and_accept', 'fallback' }}
 
 
 
