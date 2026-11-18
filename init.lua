@@ -194,9 +194,10 @@ do
     float = { border = 'rounded', source = 'if_many', max_width = 90, wrap = true },
     underline = { severity = { min = vim.diagnostic.severity.WARN } },
 
-    -- Messages are wrapped to 90 columns and shown in full below the line
+    -- Messages are wrapped to 90 columns and shown in full below the cursor line
     virtual_text = false,
     virtual_lines = {
+      current_line = true,
       format = function(d)
         local out, line = {}, ''
         for word in d.message:gmatch '%S+' do
